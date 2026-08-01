@@ -6,6 +6,7 @@ import authRoutes from "@/modules/auth/auth.routes";
 import categoryRoutes from "@/modules/categories/category.routes";
 import advertisementRoutes from "@/modules/advertisements/advertisement.routes";
 import favoriteRoutes from "@/modules/favorites/favorite.routes";
+import chatRoutes from "@/modules/chats/chat.routes";
 
 export const app = express();
 
@@ -23,5 +24,6 @@ app.use("/api/auth", authRoutes);
 app.use("/api/categories", categoryRoutes);
 app.use("/api/advertisements", advertisementRoutes);
 app.use("/api/favorites", favoriteRoutes);
+app.use("/api/chats", chatRoutes);
 
 app.use(errorHandler);

@@ -5,6 +5,7 @@ import { errorHandler } from "@/middlewares/errorHandler";
 import authRoutes from "@/modules/auth/auth.routes";
 import categoryRoutes from "@/modules/categories/category.routes";
 import advertisementRoutes from "@/modules/advertisements/advertisement.routes";
+import favoriteRoutes from "@/modules/favorites/favorite.routes";
 
 export const app = express();
 
@@ -21,5 +22,6 @@ app.get("/health", (_req, res) => {
 app.use("/api/auth", authRoutes);
 app.use("/api/categories", categoryRoutes);
 app.use("/api/advertisements", advertisementRoutes);
+app.use("/api/favorites", favoriteRoutes);
 
 app.use(errorHandler);

@@ -1,0 +1,635 @@
+// ============================================================
+// سومة (Souma) — Database Schema
+// PostgreSQL + Prisma ORM
+// Senior-level design: normalized core, EAV for dynamic category
+// attributes, full audit trail, soft delete on critical entities.
+// ============================================================
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+// ================= ENUMS =================
+
+enum UserRole {
+  USER
+  ADMIN
+  SUPER_ADMIN
+}
+
+enum UserAccountStatus {
+  ACTIVE
+  BANNED
+}
+
+enum BanType {
+  TEMPORARY
+  PERMANENT
+}
+
+enum DevicePlatform {
+  IOS
+  ANDROID
+}
+
+enum OtpPurpose {
+  LOGIN
+  PHONE_VERIFICATION
+}
+
+enum AdvertisementStatus {
+  DRAFT
+  PENDING_REVIEW
+  PUBLISHED
+  SOLD
+  REJECTED
+  EXPIRED
+  SUSPENDED // admin-initiated suspension after publish (violation)
+}
+
+enum ProductCondition {
+  NEW
+  USED
+}
+
+enum CategoryAttributeType {
+  TEXT
+  NUMBER
+  BOOLEAN
+  SELECT
+  MULTI_SELECT
+}
+
+enum MessageType {
+  TEXT
+  IMAGE
+  VOICE
+}
+
+enum NotificationType {
+  AD_PUBLISHED
+  AD_REJECTED
+  AD_SUSPENDED
+  AD_EXPIRED
+  AD_SOLD
+  NEW_MESSAGE
+  SIMILAR_AD_MATCH
+  ACCOUNT_BANNED
+  ACCOUNT_REACTIVATED
+  GENERAL
+}
+
+enum ReportTargetType {
+  ADVERTISEMENT
+  USER
+}
+
+enum ReportStatus {
+  PENDING
+  REVIEWED
+  ACTION_TAKEN
+  DISMISSED
+}
+
+enum Currency {
+  IQD
+  USD
+}
+
+enum AuditAction {
+  AD_PUBLISHED
+  AD_REJECTED
+  AD_SUSPENDED
+  AD_REACTIVATED
+  AD_DELETED
+  USER_BANNED
+  USER_UNBANNED
+  USER_ROLE_CHANGED
+  CATEGORY_CREATED
+  CATEGORY_UPDATED
+  CATEGORY_DELETED
+  REPORT_RESOLVED
+  PROMOTED_AD_CREATED
+  PROMOTED_AD_REMOVED
+  OTHER
+}
+
+// ================= LOCATION =================
+// Country مضاف لدعم التوسع لدول أخرى مستقبلاً دون كسر البنية.
+
+model Country {
+  id           String        @id @default(cuid())
+  code         String        @unique @db.VarChar(2) // ISO 3166-1 alpha-2, e.g. "IQ"
+  nameAr       String
+  nameEn       String
+  isActive     Boolean       @default(true)
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+
+  governorates Governorate[]
+
+  @@map("countries")
+}
+
+model Governorate {
+  id             String          @id @default(cuid())
+  countryId      String
+  country        Country         @relation(fields: [countryId], references: [id])
+  nameAr         String
+  nameEn         String?
+  isActive       Boolean         @default(true)
+  sortOrder      Int             @default(0)
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+
+  cities         City[]
+  advertisements Advertisement[]
+  savedSearches  SavedSearch[]
+
+  @@index([countryId])
+  @@map("governorates")
+}
+
+model City {
+  id             String          @id @default(cuid())
+  governorateId  String
+  governorate    Governorate     @relation(fields: [governorateId], references: [id])
+  nameAr         String
+  nameEn         String?
+  isActive       Boolean         @default(true)
+  sortOrder      Int             @default(0)
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+
+  advertisements Advertisement[]
+  savedSearches  SavedSearch[]
+
+  @@index([governorateId])
+  @@map("cities")
+}
+
+// ================= USERS & AUTH =================
+
+model User {
+  id              String            @id @default(cuid())
+  phoneNumber     String            @unique
+  phoneVerifiedAt DateTime?
+  fullName        String
+  avatarUrl       String?
+  role            UserRole          @default(USER)
+  accountStatus   UserAccountStatus @default(ACTIVE)
+  lastLoginAt     DateTime?
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+  deletedAt       DateTime? // soft delete
+
+  advertisements                     Advertisement[]              @relation("UserAdvertisements")
+  favorites                          Favorite[]
+  sentMessages                       Message[]                    @relation("MessageSender")
+  chatsAsBuyer                       Chat[]                       @relation("ChatBuyer")
+  chatsAsSeller                      Chat[]                       @relation("ChatSeller")
+  notifications                      Notification[]
+  reportsSubmitted                   Report[]                     @relation("ReportsSubmitted")
+  reportsReceived                    Report[]                     @relation("ReportsReceived")
+  reportsReviewed                    Report[]                     @relation("ReportsReviewed")
+  deviceTokens                       DeviceToken[]
+  refreshTokens                      RefreshToken[]
+  savedSearches                      SavedSearch[]
+  bansReceived                       UserBan[]                    @relation("BannedUser")
+  bansIssued                         UserBan[]                    @relation("BanIssuedBy")
+  bansLifted                         UserBan[]                    @relation("BanLiftedBy")
+  auditLogsAsAdmin                   AuditLog[]                   @relation("AuditActor")
+  statusChangesAsAdmin               AdvertisementStatusHistory[] @relation("StatusChangedByAdmin")
+  statusChangesAsUser                AdvertisementStatusHistory[] @relation("StatusChangedByUser")
+  promotedAdsCreated                 PromotedAd[]                 @relation("PromotedAdCreatedBy")
+  userSubscriptions                  UserSubscription[]
+
+  @@index([role])
+  @@index([accountStatus])
+  @@map("users")
+}
+
+model DeviceToken {
+  id         String         @id @default(cuid())
+  userId     String
+  user       User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  token      String         @unique
+  platform   DevicePlatform
+  lastUsedAt DateTime       @default(now())
+  createdAt  DateTime       @default(now())
+
+  @@index([userId])
+  @@map("device_tokens")
+}
+
+model OtpVerification {
+  id          String     @id @default(cuid())
+  phoneNumber String
+  codeHash    String
+  purpose     OtpPurpose
+  attempts    Int        @default(0)
+  expiresAt   DateTime
+  verifiedAt  DateTime?
+  createdAt   DateTime   @default(now())
+
+  @@index([phoneNumber, purpose])
+  @@map("otp_verifications")
+}
+
+model RefreshToken {
+  id         String    @id @default(cuid())
+  userId     String
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash  String    @unique
+  deviceInfo String?
+  expiresAt  DateTime
+  revokedAt  DateTime?
+  createdAt  DateTime  @default(now())
+
+  @@index([userId])
+  @@map("refresh_tokens")
+}
+
+model UserBan {
+  id              String    @id @default(cuid())
+  userId          String
+  user            User      @relation("BannedUser", fields: [userId], references: [id], onDelete: Cascade)
+  type            BanType
+  reason          String
+  bannedAt        DateTime  @default(now())
+  bannedUntil     DateTime? // null = permanent
+  bannedByAdminId String
+  bannedByAdmin   User      @relation("BanIssuedBy", fields: [bannedByAdminId], references: [id])
+  liftedAt        DateTime?
+  liftedByAdminId String?
+  liftedByAdmin   User?     @relation("BanLiftedBy", fields: [liftedByAdminId], references: [id])
+  isActive        Boolean   @default(true)
+
+  @@index([userId, isActive])
+  @@map("user_bans")
+}
+
+// ================= CATEGORIES (DYNAMIC) =================
+
+model Category {
+  id         String     @id @default(cuid())
+  parentId   String?
+  parent     Category?  @relation("CategoryHierarchy", fields: [parentId], references: [id])
+  children   Category[] @relation("CategoryHierarchy")
+  nameAr     String
+  nameEn     String?
+  slug       String     @unique
+  iconUrl    String?
+  isActive   Boolean    @default(true)
+  sortOrder  Int        @default(0)
+  createdAt  DateTime   @default(now())
+  updatedAt  DateTime   @updatedAt
+
+  attributes     CategoryAttribute[]
+  advertisements Advertisement[]
+  savedSearches  SavedSearch[]
+
+  @@index([parentId])
+  @@map("categories")
+}
+
+model CategoryAttribute {
+  id           String                @id @default(cuid())
+  categoryId   String
+  category     Category              @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  key          String // معرف برمجي، مثال: "brand", "mileage"
+  nameAr       String
+  nameEn       String?
+  type         CategoryAttributeType
+  isRequired   Boolean               @default(false)
+  isFilterable Boolean               @default(true)
+  sortOrder    Int                   @default(0)
+  createdAt    DateTime              @default(now())
+  updatedAt    DateTime              @updatedAt
+
+  options CategoryAttributeOption[]
+  values  AdvertisementAttributeValue[]
+
+  @@unique([categoryId, key])
+  @@index([categoryId])
+  @@map("category_attributes")
+}
+
+model CategoryAttributeOption {
+  id                  String            @id @default(cuid())
+  categoryAttributeId String
+  categoryAttribute   CategoryAttribute @relation(fields: [categoryAttributeId], references: [id], onDelete: Cascade)
+  valueAr             String
+  valueEn             String?
+  sortOrder           Int               @default(0)
+
+  advertisementValues AdvertisementAttributeValue[]
+
+  @@index([categoryAttributeId])
+  @@map("category_attribute_options")
+}
+
+// ================= ADVERTISEMENTS =================
+
+model Advertisement {
+  id            String   @id @default(cuid())
+  userId        String
+  user          User     @relation("UserAdvertisements", fields: [userId], references: [id])
+  categoryId    String
+  category      Category @relation(fields: [categoryId], references: [id])
+  governorateId String
+  governorate   Governorate @relation(fields: [governorateId], references: [id])
+  cityId        String
+  city          City     @relation(fields: [cityId], references: [id])
+
+  title       String
+  description String
+  price       Decimal           @db.Decimal(14, 2)
+  currency    Currency          @default(IQD)
+  condition   ProductCondition?
+
+  status          AdvertisementStatus @default(DRAFT)
+  rejectionReason String?
+
+  viewsCount   Int @default(0)
+  renewalCount Int @default(0)
+
+  publishedAt DateTime?
+  expiresAt   DateTime?
+  soldAt      DateTime?
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime? // soft delete
+
+  images          AdvertisementImage[]
+  attributeValues AdvertisementAttributeValue[]
+  statusHistory   AdvertisementStatusHistory[]
+  favorites       Favorite[]
+  chats           Chat[]
+  reports         Report[]                     @relation("ReportedAdvertisement")
+  promotions      PromotedAd[]
+
+  @@index([status])
+  @@index([categoryId])
+  @@index([governorateId, cityId])
+  @@index([userId])
+  @@index([price])
+  @@index([createdAt])
+  @@index([status, categoryId, governorateId])
+  @@map("advertisements")
+}
+
+model AdvertisementImage {
+  id                 String        @id @default(cuid())
+  advertisementId    String
+  advertisement      Advertisement @relation(fields: [advertisementId], references: [id], onDelete: Cascade)
+  url                String
+  cloudinaryPublicId String
+  isCover            Boolean       @default(false)
+  sortOrder          Int           @default(0)
+  createdAt          DateTime      @default(now())
+
+  @@index([advertisementId])
+  @@map("advertisement_images")
+}
+
+// EAV pattern لدعم خصائص ديناميكية لكل تصنيف بدون كتابة أعمدة ثابتة
+model AdvertisementAttributeValue {
+  id                  String                   @id @default(cuid())
+  advertisementId     String
+  advertisement       Advertisement            @relation(fields: [advertisementId], references: [id], onDelete: Cascade)
+  categoryAttributeId String
+  categoryAttribute   CategoryAttribute        @relation(fields: [categoryAttributeId], references: [id])
+  optionId            String?
+  option              CategoryAttributeOption? @relation(fields: [optionId], references: [id])
+  valueText           String?
+  valueNumber         Decimal?                 @db.Decimal(14, 2)
+  valueBoolean        Boolean?
+  createdAt           DateTime                 @default(now())
+
+  @@unique([advertisementId, categoryAttributeId])
+  @@index([categoryAttributeId, valueNumber])
+  @@index([categoryAttributeId, optionId])
+  @@map("advertisement_attribute_values")
+}
+
+// سجل كامل لكل انتقال حالة (نشر، رفض، تعليق، تجديد...) لأغراض التدقيق
+model AdvertisementStatusHistory {
+  id               String               @id @default(cuid())
+  advertisementId  String
+  advertisement    Advertisement        @relation(fields: [advertisementId], references: [id], onDelete: Cascade)
+  fromStatus       AdvertisementStatus?
+  toStatus         AdvertisementStatus
+  reason           String?
+  changedByAdminId String?
+  changedByAdmin   User?                @relation("StatusChangedByAdmin", fields: [changedByAdminId], references: [id])
+  changedByUserId  String?
+  changedByUser    User?                @relation("StatusChangedByUser", fields: [changedByUserId], references: [id])
+  createdAt        DateTime             @default(now())
+
+  @@index([advertisementId])
+  @@map("advertisement_status_history")
+}
+
+// ================= FAVORITES =================
+
+model Favorite {
+  id              String        @id @default(cuid())
+  userId          String
+  user            User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  advertisementId String
+  advertisement   Advertisement @relation(fields: [advertisementId], references: [id], onDelete: Cascade)
+  createdAt       DateTime      @default(now())
+
+  @@unique([userId, advertisementId])
+  @@index([userId])
+  @@map("favorites")
+}
+
+// ================= CHAT =================
+
+model Chat {
+  id                String        @id @default(cuid())
+  advertisementId   String
+  advertisement     Advertisement @relation(fields: [advertisementId], references: [id])
+  buyerId           String
+  buyer             User          @relation("ChatBuyer", fields: [buyerId], references: [id])
+  sellerId          String
+  seller            User          @relation("ChatSeller", fields: [sellerId], references: [id])
+  lastMessageAt     DateTime?
+  buyerLastReadAt   DateTime?
+  sellerLastReadAt  DateTime?
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+
+  messages Message[]
+
+  @@unique([advertisementId, buyerId, sellerId])
+  @@index([buyerId])
+  @@index([sellerId])
+  @@map("chats")
+}
+
+model Message {
+  id        String      @id @default(cuid())
+  chatId    String
+  chat      Chat        @relation(fields: [chatId], references: [id], onDelete: Cascade)
+  senderId  String
+  sender    User        @relation("MessageSender", fields: [senderId], references: [id])
+  type      MessageType @default(TEXT)
+  content   String?
+  mediaUrl  String?
+  isRead    Boolean     @default(false)
+  createdAt DateTime    @default(now())
+
+  @@index([chatId, createdAt])
+  @@map("messages")
+}
+
+// ================= NOTIFICATIONS =================
+
+model Notification {
+  id        String           @id @default(cuid())
+  userId    String
+  user      User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type      NotificationType
+  title     String
+  body      String
+  data      Json?
+  isRead    Boolean          @default(false)
+  createdAt DateTime         @default(now())
+
+  @@index([userId, isRead])
+  @@map("notifications")
+}
+
+// ================= REPORTS =================
+
+model Report {
+  id                String           @id @default(cuid())
+  reporterId        String
+  reporter          User             @relation("ReportsSubmitted", fields: [reporterId], references: [id])
+  targetType        ReportTargetType
+  advertisementId   String?
+  advertisement     Advertisement?   @relation("ReportedAdvertisement", fields: [advertisementId], references: [id])
+  reportedUserId    String?
+  reportedUser      User?            @relation("ReportsReceived", fields: [reportedUserId], references: [id])
+  reason            String
+  description       String?
+  status            ReportStatus     @default(PENDING)
+  reviewedByAdminId String?
+  reviewedByAdmin   User?            @relation("ReportsReviewed", fields: [reviewedByAdminId], references: [id])
+  reviewedAt        DateTime?
+  createdAt         DateTime         @default(now())
+
+  @@index([targetType, status])
+  @@index([advertisementId])
+  @@index([reportedUserId])
+  @@map("reports")
+  // ملاحظة: يُضاف CHECK constraint عبر migration يدوي:
+  // (targetType = 'ADVERTISEMENT' AND advertisementId IS NOT NULL AND reportedUserId IS NULL)
+  // OR (targetType = 'USER' AND reportedUserId IS NOT NULL AND advertisementId IS NULL)
+}
+
+// ================= PROMOTED ADS & SUBSCRIPTIONS =================
+
+model PromotedAd {
+  id               String            @id @default(cuid())
+  advertisementId  String
+  advertisement    Advertisement     @relation(fields: [advertisementId], references: [id])
+  startAt          DateTime
+  endAt            DateTime
+  isActive         Boolean           @default(true)
+  priorityWeight   Int               @default(0)
+  createdByAdminId String
+  createdByAdmin   User              @relation("PromotedAdCreatedBy", fields: [createdByAdminId], references: [id])
+  subscriptionId   String?
+  subscription     UserSubscription? @relation(fields: [subscriptionId], references: [id])
+  createdAt        DateTime          @default(now())
+
+  @@index([isActive, startAt, endAt])
+  @@index([advertisementId])
+  @@map("promoted_ads")
+}
+
+// جاهزة للمستقبل (نظام الاشتراكات) — لا ترتبط بأي بوابة دفع في النسخة الأولى
+model SubscriptionPlan {
+  id                    String   @id @default(cuid())
+  nameAr                String
+  nameEn                String?
+  durationDays          Int
+  promotedSlotsIncluded Int
+  price                 Decimal  @db.Decimal(14, 2)
+  currency              Currency @default(IQD)
+  isActive              Boolean  @default(true)
+  createdAt             DateTime @default(now())
+
+  userSubscriptions UserSubscription[]
+
+  @@map("subscription_plans")
+}
+
+model UserSubscription {
+  id        String           @id @default(cuid())
+  userId    String
+  user      User             @relation(fields: [userId], references: [id])
+  planId    String
+  plan      SubscriptionPlan @relation(fields: [planId], references: [id])
+  startAt   DateTime         @default(now())
+  endAt     DateTime
+  isActive  Boolean          @default(true)
+  createdAt DateTime         @default(now())
+
+  promotedAds PromotedAd[]
+
+  @@index([userId, isActive])
+  @@map("user_subscriptions")
+}
+
+// ================= SAVED SEARCHES =================
+
+model SavedSearch {
+  id                   String            @id @default(cuid())
+  userId               String
+  user                 User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name                 String?
+  keyword              String?
+  categoryId           String?
+  category             Category?         @relation(fields: [categoryId], references: [id])
+  governorateId        String?
+  governorate          Governorate?      @relation(fields: [governorateId], references: [id])
+  cityId               String?
+  city                 City?             @relation(fields: [cityId], references: [id])
+  minPrice             Decimal?          @db.Decimal(14, 2)
+  maxPrice             Decimal?          @db.Decimal(14, 2)
+  condition            ProductCondition?
+  notificationsEnabled Boolean           @default(true)
+  lastNotifiedAt       DateTime?
+  createdAt            DateTime          @default(now())
+
+  @@index([userId])
+  @@map("saved_searches")
+}
+
+// ================= AUDIT LOG =================
+
+model AuditLog {
+  id         String      @id @default(cuid())
+  adminId    String
+  admin      User        @relation("AuditActor", fields: [adminId], references: [id])
+  action     AuditAction
+  targetType String // "Advertisement" | "User" | "Category" | ...
+  targetId   String
+  metadata   Json?
+  createdAt  DateTime    @default(now())
+
+  @@index([adminId])
+  @@index([targetType, targetId])
+  @@map("audit_logs")
+}

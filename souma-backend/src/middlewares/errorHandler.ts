@@ -1,4 +1,5 @@
 import { Request, Response, NextFunction } from "express";
+import multer from "multer";
 import { failure } from "@/utils/ApiResponse";
 
 export class AppError extends Error {
@@ -13,6 +14,9 @@ export function errorHandler(err: unknown, _req: Request, res: Response, _next: 
   if (err instanceof AppError) {
     return failure(res, err.message, [], err.status);
   }
-  console.error(err); // لاحقاً: استبدله بـ Logger حقيقي (Winston/Pino)
+  if (err instanceof multer.MulterError) {
+    return failure(res, `خطأ برفع الملف: ${err.message}`, [], 400);
+  }
+  console.error(err);
   return failure(res, "حدث خطأ غير متوقع في الخادم", [], 500);
 }

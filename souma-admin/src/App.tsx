@@ -10,21 +10,21 @@ const queryClient = new QueryClient();
 
 function App() {
   return (
-      <QueryClientProvider client={queryClient}>
-            <BrowserRouter>
-                    <Routes>
-                              <Route path="/login" element={<LoginPage />} />
-                                        <Route element={<ProtectedRoute />}>
-                                                    <Route element={<AdminLayout />}>
-                                                                  <Route path="/" element={<PendingAdvertisementsPage />} />
-                                                                                <Route path="/reports" element={<ReportsPage />} />
-                                                                                            </Route>
-                                                                                                      </Route>
-                                                                                                                <Route path="*" element={<Navigate to="/" replace />} />
-                                                                                                                        </Routes>
-                                                                                                                              </BrowserRouter>
-                                                                                                                                  </QueryClientProvider>
-                                                                                                                                    );
-                                                                                                                                    }
+    <QueryClientProvider client={queryClient}>
+      <BrowserRouter>
+        <Routes>
+          <Route path="/login" element={<LoginPage />} />
+          <Route element={<ProtectedRoute />}>
+            <Route element={<AdminLayout />}>
+              <Route path="/" element={<PendingAdvertisementsPage />} />
+              <Route path="/reports" element={<ReportsPage />} />
+            </Route>
+          </Route>
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
+      </BrowserRouter>
+    </QueryClientProvider>
+  );
+}
 
-                                                                                                                                    export default App;
+export default App;

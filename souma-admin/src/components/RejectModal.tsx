@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { X, Loader2 } from 'lucide-react';
 
 interface RejectModalProps {
   isOpen: boolean;
@@ -20,34 +21,45 @@ export function RejectModal({ isOpen, onClose, onConfirm, isSubmitting }: Reject
   return (
     <div
       dir="rtl"
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-charcoal/40 backdrop-blur-[2px]"
       onClick={onClose}
     >
       <div
-        className="w-full max-w-md rounded-xl bg-white p-6 shadow-lg"
+        className="animate-fade-in-up w-full max-w-md overflow-hidden rounded-2xl bg-white shadow-xl"
         onClick={(e) => e.stopPropagation()}
       >
-        <h3 className="mb-4 text-lg font-bold text-gray-900">سبب رفض الإعلان</h3>
-        <textarea
-          value={reason}
-          onChange={(e) => setReason(e.target.value)}
-          placeholder="اكتب سبباً واضحاً يصل للمستخدم..."
-          className="mb-4 h-28 w-full resize-none rounded-lg border border-gray-300 p-3 text-right focus:border-teal-600 focus:outline-none"
-        />
-        <div className="flex gap-3">
-          <button
-            onClick={onClose}
-            className="flex-1 rounded-lg border border-gray-300 py-2 text-gray-700 hover:bg-gray-50"
-          >
-            إلغاء
-          </button>
-          <button
-            onClick={handleConfirm}
-            disabled={reason.trim().length < 5 || isSubmitting}
-            className="flex-1 rounded-lg bg-red-700 py-2 text-white hover:bg-red-800 disabled:opacity-50"
-          >
-            {isSubmitting ? 'جاري الرفض...' : 'تأكيد الرفض'}
-          </button>
+        <div className="border-t-4 border-dashed border-stamp/30 px-6 pt-5">
+          <div className="mb-4 flex items-center gap-2.5">
+            <div className="flex h-9 w-9 items-center justify-center rounded-full bg-stamp-light text-stamp">
+              <X size={18} />
+            </div>
+            <h3 className="font-display text-lg font-bold text-charcoal">سبب رفض الإعلان</h3>
+          </div>
+        </div>
+
+        <div className="px-6 pb-6">
+          <textarea
+            value={reason}
+            onChange={(e) => setReason(e.target.value)}
+            placeholder="اكتب سبباً واضحاً يصل للمستخدم..."
+            className="mb-4 h-28 w-full resize-none rounded-xl border border-line bg-paper-dim p-3.5 text-right text-sm focus:border-stamp focus:bg-white focus:outline-none"
+          />
+          <div className="flex gap-3">
+            <button
+              onClick={onClose}
+              className="flex-1 rounded-xl border border-line py-2.5 text-sm font-medium text-charcoal/70 transition hover:bg-paper-dim"
+            >
+              إلغاء
+            </button>
+            <button
+              onClick={handleConfirm}
+              disabled={reason.trim().length < 5 || isSubmitting}
+              className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-stamp py-2.5 text-sm font-medium text-white transition hover:bg-stamp/90 disabled:opacity-50"
+            >
+              {isSubmitting && <Loader2 size={16} className="animate-spin" />}
+              تأكيد الرفض
+            </button>
+          </div>
         </div>
       </div>
     </div>

@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { AppError } from "@/middlewares/errorHandler";
 import { AdvertisementStatus, CategoryAttributeType, Prisma } from "@prisma/client";
+import { sendTelegramNotification } from "@/lib/telegram";
 import {
   CreateAdvertisementInput,
   UpdateAdvertisementInput,
@@ -119,7 +120,18 @@ export const advertisementService = {
       throw new AppError("يجب إضافة صورة واحدة على الأقل قبل إرسال الإعلان للمراجعة", 422);
     }
 
-    return this.transitionStatus(adId, AdvertisementStatus.PENDING_REVIEW, { changedByUserId: userId });
+    const result = await this.transitionStatus(adId, AdvertisementStatus.PENDING_REVIEW, {
+      changedByUserId: userId,
+    });
+
+    sendTelegramNotification(
+      `📢 <b>إعلان جديد بانتظار المراجعة</b>\n\n` +
+        `العنوان: ${ad.title}\n` +
+        `السعر: ${Number(ad.price).toLocaleString()} ${ad.currency}\n` +
+        `رابط اللوحة: راجعه من لوحة التحكم`
+    );
+
+    return result;
   },
 
   async update(userId: string, adId: string, input: UpdateAdvertisementInput) {

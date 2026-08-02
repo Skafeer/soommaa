@@ -18,4 +18,6 @@ export const env = {
   cloudinaryCloudName: required("CLOUDINARY_CLOUD_NAME"),
   cloudinaryApiKey: required("CLOUDINARY_API_KEY"),
   cloudinaryApiSecret: required("CLOUDINARY_API_SECRET"),
+  telegramBotToken: required("TELEGRAM_BOT_TOKEN"),
+  telegramAdminChatId: required("TELEGRAM_ADMIN_CHAT_ID"),
 };

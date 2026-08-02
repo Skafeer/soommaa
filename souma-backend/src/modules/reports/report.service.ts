@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { AppError } from "@/middlewares/errorHandler";
 import { ReportStatus } from "@prisma/client";
+import { sendTelegramNotification } from "@/lib/telegram";
 import { CreateReportInput } from "./report.validators";
 
 export const reportService = {
@@ -17,7 +18,7 @@ export const reportService = {
       if (user.id === reporterId) throw new AppError("لا يمكنك الإبلاغ عن نفسك", 422);
     }
 
-    return prisma.report.create({
+    const report = await prisma.report.create({
       data: {
         reporterId,
         targetType: input.targetType,
@@ -27,6 +28,15 @@ export const reportService = {
         description: input.description,
       },
     });
+
+    sendTelegramNotification(
+      `🚩 <b>بلاغ جديد</b>\n\n` +
+        `النوع: ${input.targetType === "ADVERTISEMENT" ? "إعلان" : "مستخدم"}\n` +
+        `السبب: ${input.reason}\n` +
+        `راجعه من لوحة التحكم`
+    );
+
+    return report;
   },
 
   async listPending() {

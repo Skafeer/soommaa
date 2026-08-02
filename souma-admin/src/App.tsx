@@ -4,7 +4,7 @@ import { LoginPage } from '@/pages/LoginPage';
 import { PendingAdvertisementsPage } from '@/pages/PendingAdvertisementsPage';
 import { ProtectedRoute } from '@/components/ProtectedRoute';
 import { AdminLayout } from '@/layouts/AdminLayout';
-
+import { ReportsPage } from '@/pages/ReportsPage';
 const queryClient = new QueryClient();
 
 function App() {
@@ -16,6 +16,10 @@ function App() {
           <Route element={<ProtectedRoute />}>
             <Route element={<AdminLayout />}>
               <Route path="/" element={<PendingAdvertisementsPage />} />
+              <Route element={<AdminLayout />}>
+  <Route path="/" element={<PendingAdvertisementsPage />} />
+  <Route path="/reports" element={<ReportsPage />} />
+</Route>
             </Route>
           </Route>
           <Route path="*" element={<Navigate to="/" replace />} />

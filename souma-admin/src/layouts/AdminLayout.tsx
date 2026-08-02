@@ -36,7 +36,7 @@ export function AdminLayout() {
         </div>
       </aside>
 
-      <main className="flex-1">
+     <main className="flex-1 animate-fade-in-up">
         <Outlet />
       </main>
     </div>

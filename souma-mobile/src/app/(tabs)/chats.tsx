@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import { chatApi } from '@/api/chat.api';
 import { useAuthStore } from '@/stores/auth.store';
 import { ChatListItem } from '@/types/chat.types';
+import { router } from 'expo-router';
 
 export default function ChatsScreen() {
   const user = useAuthStore((s) => s.user);
@@ -16,7 +17,7 @@ export default function ChatsScreen() {
     const lastMessage = item.messages[0];
 
     return (
-      <TouchableOpacity style={styles.card}>
+      <TouchableOpacity style={styles.card} onPress={() => router.push({ pathname: '/chat/[chatId]', params: { chatId: item.id } })}>
         {item.advertisement.images[0] && (
           <Image source={{ uri: item.advertisement.images[0].url }} style={styles.image} />
         )}

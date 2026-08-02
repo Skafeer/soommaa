@@ -8,6 +8,7 @@ import advertisementRoutes from "@/modules/advertisements/advertisement.routes";
 import favoriteRoutes from "@/modules/favorites/favorite.routes";
 import chatRoutes from "@/modules/chats/chat.routes";
 import locationRoutes from "@/modules/locations/location.routes";
+import reportRoutes from "@/modules/reports/report.routes";
 
 export const app = express();
 
@@ -27,5 +28,6 @@ app.use("/api/advertisements", advertisementRoutes);
 app.use("/api/favorites", favoriteRoutes);
 app.use("/api/chats", chatRoutes);
 app.use("/api/locations", locationRoutes);
+app.use("/api/reports", reportRoutes);
 
 app.use(errorHandler);

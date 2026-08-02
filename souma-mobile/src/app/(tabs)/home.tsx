@@ -1,6 +1,7 @@
 import { View, Text, FlatList, Image, StyleSheet, TouchableOpacity } from 'react-native';
 import { useQuery } from '@tanstack/react-query';
 import { router } from 'expo-router';
+import { Ionicons } from '@expo/vector-icons';
 import { advertisementApi } from '@/api/advertisement.api';
 import { AdvertisementListItem } from '@/types/advertisement.types';
 
@@ -11,7 +12,10 @@ export default function HomeScreen() {
   });
 
   const renderItem = ({ item }: { item: AdvertisementListItem }) => (
-    <TouchableOpacity style={styles.card} onPress={() => router.push({ pathname: '/advertisement/[id]', params: { id: item.id } })}>
+    <TouchableOpacity
+      style={styles.card}
+      onPress={() => router.push({ pathname: '/advertisement/[id]', params: { id: item.id } })}
+    >
       {item.images[0] && <Image source={{ uri: item.images[0].url }} style={styles.image} />}
       <View style={styles.cardBody}>
         <Text style={styles.title} numberOfLines={1}>{item.title}</Text>
@@ -41,6 +45,10 @@ export default function HomeScreen() {
           refreshing={isRefetching}
         />
       )}
+
+      <TouchableOpacity style={styles.fab} onPress={() => router.push('/create-ad')}>
+        <Ionicons name="add" size={28} color="#fff" />
+      </TouchableOpacity>
     </View>
   );
 }
@@ -63,4 +71,20 @@ const styles = StyleSheet.create({
   title: { fontSize: 15, fontWeight: '600', textAlign: 'right' },
   price: { fontSize: 16, color: '#0f766e', fontWeight: 'bold', marginTop: 4 },
   location: { fontSize: 12, color: '#888', marginTop: 4 },
+  fab: {
+    position: 'absolute',
+    bottom: 24,
+    left: 24,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: '#0f766e',
+    justifyContent: 'center',
+    alignItems: 'center',
+    elevation: 4,
+    shadowColor: '#000',
+    shadowOpacity: 0.2,
+    shadowRadius: 6,
+    shadowOffset: { width: 0, height: 3 },
+  },
 });

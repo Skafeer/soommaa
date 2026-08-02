@@ -255,7 +255,7 @@ export const advertisementService = {
         category: true,
         governorate: true,
         city: true,
-        user: { select: { id: true, fullName: true, phoneVerifiedAt: true } },
+        user: { select: { id: true, fullName: true, phoneVerifiedAt: true, phoneNumber: true } },
       },
     });
 

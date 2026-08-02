@@ -10,6 +10,7 @@ import {
   Alert,
   Dimensions,
   TextInput,
+  Linking,
 } from 'react-native';
 import { useLocalSearchParams, router } from 'expo-router';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -18,6 +19,7 @@ import { advertisementApi } from '@/api/advertisement.api';
 import { favoriteApi } from '@/api/favorite.api';
 import { chatApi } from '@/api/chat.api';
 import { useAuthStore } from '@/stores/auth.store';
+import { ReportModal } from '@/components/ReportModal';
 
 const { width } = Dimensions.get('window');
 
@@ -27,6 +29,8 @@ export default function AdvertisementDetailScreen() {
   const queryClient = useQueryClient();
   const [messageText, setMessageText] = useState('');
   const [showChatBox, setShowChatBox] = useState(false);
+  const [showPhoneNumber, setShowPhoneNumber] = useState(false);
+  const [showReportModal, setShowReportModal] = useState(false);
 
   const { data: ad, isLoading } = useQuery({
     queryKey: ['advertisement', id],
@@ -54,6 +58,10 @@ export default function AdvertisementDetailScreen() {
     onError: (err: any) => Alert.alert('خطأ', err.response?.data?.message ?? 'حدث خطأ'),
   });
 
+  const handleCall = () => {
+    if (ad) Linking.openURL(`tel:${ad.user.phoneNumber}`);
+  };
+
   if (isLoading) {
     return (
       <View style={styles.centerContainer}>
@@ -78,6 +86,12 @@ export default function AdvertisementDetailScreen() {
         <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
           <Ionicons name="arrow-forward" size={24} color="#333" />
         </TouchableOpacity>
+
+        {!isOwner && (
+          <TouchableOpacity style={styles.reportIconButton} onPress={() => setShowReportModal(true)}>
+            <Ionicons name="flag-outline" size={22} color="#b91c1c" />
+          </TouchableOpacity>
+        )}
 
         {ad.images.length > 0 ? (
           <ScrollView horizontal pagingEnabled showsHorizontalScrollIndicator={false}>
@@ -135,6 +149,22 @@ export default function AdvertisementDetailScreen() {
               <Text style={styles.verifiedText}>رقم موثّق</Text>
             </View>
           )}
+
+          {!isOwner && (
+            <View style={styles.phoneSection}>
+              {showPhoneNumber ? (
+                <TouchableOpacity style={styles.phoneRevealedBox} onPress={handleCall}>
+                  <Ionicons name="call" size={18} color="#0f766e" />
+                  <Text style={styles.phoneNumberText}>{ad.user.phoneNumber}</Text>
+                </TouchableOpacity>
+              ) : (
+                <TouchableOpacity style={styles.showPhoneButton} onPress={() => setShowPhoneNumber(true)}>
+                  <Ionicons name="call-outline" size={18} color="#0f766e" />
+                  <Text style={styles.showPhoneText}>إظهار الرقم</Text>
+                </TouchableOpacity>
+              )}
+            </View>
+          )}
         </View>
       </ScrollView>
 
@@ -169,6 +199,13 @@ export default function AdvertisementDetailScreen() {
           )}
         </View>
       )}
+
+      <ReportModal
+        visible={showReportModal}
+        onClose={() => setShowReportModal(false)}
+        targetType="ADVERTISEMENT"
+        advertisementId={id}
+      />
     </View>
   );
 }
@@ -180,6 +217,16 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: 44,
     right: 16,
+    zIndex: 10,
+    backgroundColor: '#fff',
+    borderRadius: 20,
+    padding: 8,
+    elevation: 3,
+  },
+  reportIconButton: {
+    position: 'absolute',
+    top: 44,
+    left: 16,
     zIndex: 10,
     backgroundColor: '#fff',
     borderRadius: 20,
@@ -207,6 +254,28 @@ const styles = StyleSheet.create({
   sellerName: { fontSize: 15, textAlign: 'right', fontWeight: '600' },
   verifiedBadge: { flexDirection: 'row-reverse', alignItems: 'center', gap: 4, marginTop: 6 },
   verifiedText: { color: '#0f766e', fontSize: 12 },
+  phoneSection: { marginTop: 16 },
+  showPhoneButton: {
+    flexDirection: 'row-reverse',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    borderWidth: 1,
+    borderColor: '#0f766e',
+    borderRadius: 10,
+    paddingVertical: 12,
+  },
+  showPhoneText: { color: '#0f766e', fontSize: 15, fontWeight: '600' },
+  phoneRevealedBox: {
+    flexDirection: 'row-reverse',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    backgroundColor: '#e6f4f3',
+    borderRadius: 10,
+    paddingVertical: 12,
+  },
+  phoneNumberText: { color: '#0f766e', fontSize: 16, fontWeight: '700' },
   footer: { padding: 16, borderTopWidth: 1, borderTopColor: '#eee' },
   footerRow: { flexDirection: 'row-reverse', gap: 12 },
   favoriteButton: {

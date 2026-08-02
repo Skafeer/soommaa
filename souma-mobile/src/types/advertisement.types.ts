@@ -49,5 +49,5 @@ export interface AdvertisementDetail {
   category: { nameAr: string; slug: string };
   governorate: { nameAr: string };
   city: { nameAr: string };
-  user: { id: string; fullName: string; phoneVerifiedAt: string | null };
+  user: { id: string; fullName: string; phoneVerifiedAt: string | null; phoneNumber: string };
 }
